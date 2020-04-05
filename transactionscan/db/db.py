@@ -109,6 +109,21 @@ class Database:
             session.add(category)
         session.commit()
 
+    def get_categories(self):
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
+        query = session.query(Category).all()
+        categories = [c.name for c in query]
+        session.close()
+        return categories
+
+    def is_existing_transaction(self, transaction: ModelTransaction):
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
+        results = session.query(Transaction).filter_by(reference=transaction.reference)
+        session.close()
+        return True if results.count() else False
+
     def add_transaction(self, transaction: ModelTransaction):
         Session = sessionmaker(bind=self.engine)
         session = Session()
@@ -118,8 +133,6 @@ class Database:
             print(f"Error: Unable to find category {transaction.category}")
             session.close()
             exit(1)
-        else:
-            session = session.object_session(category)
         db_transaction = Transaction()
         db_transaction.description = transaction.description
         db_transaction.amount = transaction.amount
@@ -130,6 +143,7 @@ class Database:
         db_transaction.account = transaction.account
         session.add(db_transaction)
         session.commit()
+        session.close()
 
     @staticmethod
     def _filter_transactions(

@@ -1,11 +1,12 @@
 import csv
+import hashlib
 from datetime import datetime
 
 from transactionscan.models.transaction import Transaction
 
 
 class BarclaysParser:
-    column_mappings = {"Date": 1, "Reference": 6, "Amount": 3, "Description": 5}
+    column_mappings = {"Date": 1, "Amount": 3, "Description": 5}
 
     def __init__(self):
         pass
@@ -30,12 +31,22 @@ class BarclaysParser:
                 if empty_row:
                     continue
 
+                date = row[self.column_mappings["Date"]]
+                description = row[self.column_mappings["Description"]]
+                amount = row[self.column_mappings["Amount"]]
+
+
                 transaction = Transaction()
                 transaction.date = datetime.strptime(
-                    row[self.column_mappings["Date"]], "%d/%m/%Y"
+                    date, "%d/%m/%Y"
                 )
-                transaction.reference = row[self.column_mappings["Reference"]]
-                amount = row[self.column_mappings["Amount"]]
+
+                # TODO: What happens if there are valid multiple transactions in a day?
+                date_desc_amount = f"{date}|{description}|{amount}"
+                hash = hashlib.md5(date_desc_amount.encode())
+                hexdigest = hash.hexdigest()
+
+                transaction.reference = hexdigest
                 amount = amount.strip().replace(".", "")
                 if amount[0] != "-":
                     transaction.income_expense = "I"
@@ -44,7 +55,7 @@ class BarclaysParser:
                     amount = amount[1:]
                 amount = int(amount)
                 transaction.amount = amount
-                transaction.description = row[self.column_mappings["Description"]]
+                transaction.description = description
                 transactions.append(transaction)
                 transaction.account = source
         return transactions

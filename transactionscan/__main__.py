@@ -10,6 +10,13 @@ parser_dict = {"amex": AmexParser, "monzo": MonzoParser, "barclays": BarclaysPar
 source_list = ["monzo-dino", "monzo-lau", "monzo-joint", "amex", "barclays-dino"]
 
 
+def get_category_options(db: Database):
+    all_categories = db.get_categories()
+    category_options = { i : name for i,name in enumerate(all_categories, 1) }
+    category_options[len(all_categories) + 1] = "Add new category"
+    return category_options
+
+
 def parse_input(db: Database, input_file: str, format: str, source: str):
     ParserClass = parser_dict.get(format)
     if ParserClass is None:
@@ -18,17 +25,46 @@ def parse_input(db: Database, input_file: str, format: str, source: str):
     parser = ParserClass()
     transactions = parser.parse(input_file, source)
     for transaction in transactions:
+        if db.is_existing_transaction(transaction):
+            print(f"Skipping existing transaction with reference {transaction.reference}")
+            continue
         matched_category = db.get_matched_category(transaction.description)
         if matched_category is None:
+            category_options = get_category_options(db)
+            for i in range(1, len(category_options)+1):
+                print(f"{i} : {category_options[i]}")
+
             print(
-                f"Please enter a tag and category for description {transaction.description} : {transaction.amount}"
+                f"Please select a category for description {transaction.description} : {transaction.amount / 100.00} on {transaction.date}"
             )
+
+            category_option = 0
+            while True:
+                category_str = input("Category number: ")
+                try:
+                    category_option = int(category_str)
+                except ValueError:
+                    print(f"Invalid category number selected, please try again.")
+                    continue
+
+                if category_option not in list(category_options.keys()):
+                    print(f"Invalid category number selected, please try again.")
+                    continue
+                else:
+                    break
+
+            if category_option == len(category_options):
+                selected_category = input("New category name: ").lower().strip()
+                db.add_category(selected_category)
+            else:
+                selected_category = category_options[category_option]
+
+            transaction.category = selected_category
+
+            print("You may enter a short tag to associate with this category (press enter to skip).")
             tag = input("Tag: ").lower().strip()
-            if tag.strip() != "":
-                category = input("Category: ").lower().strip()
-                db.add_category(category)
-                db.add_category_match(tag, category)
-                transaction.category = category
+            if tag != "":
+                db.add_category_match(tag, selected_category)
         else:
             transaction.category = matched_category
         db.add_transaction(transaction)
