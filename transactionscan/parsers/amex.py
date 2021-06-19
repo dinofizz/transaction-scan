@@ -5,7 +5,7 @@ from transactionscan.models.transaction import Transaction
 
 
 class AmexParser:
-    column_mappings = {"Date": 0, "Reference": 1, "Amount": 2, "Description": 3}
+    column_mappings = {"Date": 0, "Reference": 11, "Amount": 4, "Description": 1}
 
     def __init__(self):
         pass
@@ -14,7 +14,13 @@ class AmexParser:
         transactions = []
         with open(input_file, "r") as f:
             csv_reader = csv.reader(f, delimiter=",")
+            first_line = True
             for row in csv_reader:
+                if first_line:
+                    # In the Amex CSV file the first row are the column names
+                    first_line = False
+                    continue
+
                 transaction = Transaction()
                 transaction.date = datetime.strptime(
                     row[self.column_mappings["Date"]], "%d/%m/%Y"
